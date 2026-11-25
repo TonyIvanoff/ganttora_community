@@ -1,0 +1,127 @@
+# tests/rust/Cargo.toml: the Rust test crate "ganttora-tests"
+#
+# What this file is for
+# ---------------------
+# All Rust tests of Ganttora live in this one crate (decision D17 in
+# the project documentation: tests are kept apart from the source code). It is a member of the
+# workspace, so `cargo test --workspace` runs it together with everything
+# else.
+#
+# How it is organised
+# -------------------
+# - `common/` is a small *library* (shared helpers): builders for test
+#   projects such as the garden shed, and date helpers such as
+#   `dt("2027-03-01 08:00")`. Every test target can use it as
+#   `ganttora_tests::...`.
+# - Each other folder (`engine/`, later `document/`, `gtra/` ...) is one
+#   *test target*: a separate test program that Cargo builds and runs.
+# - The 10,000-task benchmark lives in `tests/perf/rust/` and is
+#   declared here as a *bench target*, so it can reuse the helpers in common/.
+#
+# Rule: tests use only the PUBLIC API of each crate (what `pub` exposes),
+# exactly as the app does.
+
+[package]
+name = "ganttora-tests"
+version.workspace = true
+edition.workspace = true
+# Never published to crates.io: it is only for us.
+publish = false
+
+# Turn off Cargo's automatic search for targets. We list every target below
+# by hand, because our folder layout (engine/, common/ ...) is not Cargo's
+# default layout (src/, tests/, benches/).
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+# The shared helper library. Its crate name is `ganttora_tests` (Cargo turns
+# the dash in the package name into an underscore).
+[lib]
+path = "common/lib.rs"
+
+# Engine tests: the critical path method, lags, calendars, errors,
+# determinism and the calendar arithmetic. Run them with
+#   cargo test -p ganttora-tests --test engine
+[[test]]
+name = "engine"
+path = "engine/main.rs"
+
+# Document tests: edit commands, undo/redo, the change journal, the JSON the
+# UI sends and receives. Run them with
+#   cargo test -p ganttora-tests --test document
+[[test]]
+name = "document"
+path = "document/main.rs"
+
+# Property tests of the engine: rules that must hold for *every* project
+# (finish never before start, same input gives same output, circles are
+# always refused), checked on hundreds of randomly generated projects. Run
+# them with
+#   cargo test -p ganttora-tests --test engine_props
+[[test]]
+name = "engine_props"
+path = "engine_props/main.rs"
+
+# .gtra file tests: save and open, atomic save, format versions, migrations,
+# database rules. Run them with
+#   cargo test -p ganttora-tests --test gtra
+[[test]]
+name = "gtra"
+path = "gtra/main.rs"
+
+# Benchmark: schedule a generated 10,000-task project. Run it with
+#   cargo bench -p ganttora-tests
+# `harness = false` because Criterion brings its own `main` function instead
+# of Rust's built-in test runner.
+[[bench]]
+name = "schedule_10k"
+path = "../perf/rust/schedule_10k.rs"
+harness = false
+
+[dependencies]
+# The crates under test.
+model = { workspace = true }
+engine = { workspace = true }
+document = { workspace = true }
+gtra = { workspace = true }
+# Dates and times (NaiveDate, NaiveDateTime) for the date helpers.
+chrono = { workspace = true }
+# uuid: lets the generator give tasks fixed, repeatable IDs
+# (Uuid::from_u128(1), (2) ...) instead of random ones, so a generated project
+# is exactly the same on every run. MIT/Apache-2.0.
+uuid = { workspace = true }
+# serde_json: the document tests check the exact JSON the UI sends (commands)
+# and receives (snapshots, change records). MIT/Apache-2.0.
+serde_json = { workspace = true }
+
+[dev-dependencies]
+# criterion: the standard Rust benchmarking library. It runs a piece of code
+# many times and reports the typical time with statistics, so one slow run
+# does not mislead us. Default features (HTML reports, plotting, rayon) are
+# turned off to keep it small. Licence MIT/Apache-2.0; actively maintained
+# (github.com/bheisler/criterion.rs). Only used by the benchmark, never by
+# the app.
+criterion = { version = "0.7", default-features = false }
+# tempfile: makes a fresh, empty temporary folder for each .gtra test and
+# deletes it when the test ends, so tests never write into the repository and
+# never see each other's files. Licence MIT/Apache-2.0; actively maintained
+# (github.com/Stebalien/tempfile), used by most of the Rust ecosystem. Only
+# used by tests, never by the app.
+tempfile = "3"
+# proptest: property-based testing (named in the project rules). Instead of one
+# hand-written example, a test describes the *kind* of input it wants
+# ("a project with 1 to 20 tasks and random links"); proptest generates
+# hundreds of such inputs and, when one fails, shrinks it to the smallest
+# failing example. Licence MIT/Apache-2.0; actively maintained
+# (github.com/proptest-rs/proptest). Default features (forking, timeouts)
+# are turned off: we only need the generators and the runner. Only used by
+# tests, never by the app.
+proptest = { version = "1", default-features = false, features = ["std"] }
+# rusqlite: the gtra tests open .gtra files directly as SQLite databases, to
+# fake situations the public API cannot produce on purpose: a file from a
+# newer Ganttora (higher format version), an empty version-0 database for the
+# migration test, rows that break a foreign key. Same version as the app
+# (workspace). Licence MIT.
+rusqlite = { workspace = true }

@@ -1,0 +1,10 @@
+// settings.gradle: tells Gradle the name of this build.
+//
+// Gradle (https://gradle.org) is the build tool for this Java program: it
+// downloads the libraries we need (MPXJ and its helpers), compiles the Java
+// code and packages it. This file is read first; the real build steps are in
+// build.gradle next to it. See backend/sidecar/mpxj/README.md.
+
+// The name of the project. It becomes part of the output file names,
+// for example build/libs/mpxj-sidecar-all.jar.
+rootProject.name = 'mpxj-sidecar'

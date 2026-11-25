@@ -1,0 +1,86 @@
+# Crate "ganttora": the Tauri desktop shell (the app itself).
+#
+# A thin layer between the user interface (React, in frontend/) and the Rust
+# core crates. It opens the window, registers the IPC commands the UI may
+# call, and (later) menus, settings, file dialogs and the updater.
+# No scheduling logic lives here.
+#
+# See the project documentation and the reference pages in the project documentation
+[package]
+name = "ganttora"
+description = "Ganttora desktop app: Tauri shell around the Rust scheduling core"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+# No `rust-version` here on purpose: the exact compiler is pinned in
+# rust-toolchain.toml. (A lower `rust-version` would make Cargo pick older
+# Tauri releases that no longer match the @tauri-apps/api package version.)
+
+[lib]
+# The library holds all the code; main.rs only calls `ganttora_lib::run()`.
+# The "_lib" suffix avoids a name clash with the binary on Windows.
+name = "ganttora_lib"
+# "rlib" = a normal Rust library. "staticlib" and "cdylib" are the forms the
+# mobile builds would need; we keep the standard Tauri setup so the crate
+# works with every Tauri CLI command.
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+# tauri-build: reads tauri.conf.json and capabilities at compile time and
+# embeds them into the app. Apache-2.0 OR MIT.
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# tauri: the desktop framework (window, web view, IPC). Apache-2.0 OR MIT.
+tauri = { version = "2", features = [] }
+# serde: turns our Rust structs into JSON for the UI. MIT/Apache-2.0.
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Our own core crates (paths are set in the workspace Cargo.toml):
+# document: the open project session (commands, undo/redo, snapshot for the UI).
+document = { workspace = true }
+# model: the domain types (Project, Task, Dependency). demo.rs uses them to
+# build the garden-shed sample project.
+model = { workspace = true }
+# engine: the scheduling engine. The shell never schedules anything itself
+# (the document calls the engine); demo.rs only uses it in a doc example to
+# check the sample project, and ipc/file.rs stores engine::ENGINE_VERSION in
+# saved files. Listed so all three core crates build with the app.
+engine = { workspace = true }
+# chrono: dates and times. The workspace leaves chrono's clock switched off,
+# which keeps the core crates deterministic. The *shell* is the one place
+# that may read the clock, so it switches on the "clock" feature here
+# (it provides `Utc::now()` and `Local::now()`, the user's own time zone;
+# it adds the small `iana-time-zone` crate, MIT/Apache-2.0).
+chrono = { workspace = true, features = ["clock"] }
+# uuid: unique IDs. ipc/recovery.rs reads the recovery copies' session IDs;
+# the doc tests use it to make unique temporary folders.
+uuid = { workspace = true }
+# gtra: reads and writes .gtra project files (open / save, see ipc/file.rs).
+gtra = { workspace = true }
+# tauri-plugin-dialog: the operating system's own "Open" and "Save As"
+# windows. The UI opens them (frontend/features/files/dialogs.ts) and sends the chosen
+# path to our file commands. Official Tauri plugin, maintained by the Tauri
+# team. Licence: Apache-2.0 OR MIT. Its JavaScript half is the npm package
+# @tauri-apps/plugin-dialog (same version line, same licence).
+tauri-plugin-dialog = "2.8"
+# tauri-plugin-single-instance: makes sure only one Ganttora runs at a time.
+# Starting it again just brings the open window to the front. We need this
+# because the app's working/ and recovery/ folders are shared: a second
+# copy of the app would see the first one's live recovery copies as "left
+# over from a crash". Official Tauri plugin, small (no extra dependencies
+# on Windows/macOS; zbus on Linux for D-Bus). Licence: Apache-2.0 OR MIT.
+tauri-plugin-single-instance = "2.5"
+# tauri-plugin-clipboard-manager: reads and writes the system clipboard for
+# Copy / Paste of tasks (ipc/clipboard.rs). Used from Rust only, so the UI
+# gets no clipboard permission of its own (capabilities/default.json stays
+# unchanged). Official Tauri plugin, maintained by the Tauri team.
+# Licence: Apache-2.0 OR MIT.
+tauri-plugin-clipboard-manager = "2.5"
+
+# macOS only.
+[target.'cfg(target_os = "macos")'.dependencies]
+# objc2: calls into macOS. Used by macos_quit.rs so that Quit from the Dock
+# icon asks about unsaved changes. Tauri already uses the same version, so
+# nothing new is downloaded. Maintained (madsmtm/objc2). Licence: MIT.
+objc2 = "0.6"

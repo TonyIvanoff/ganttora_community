@@ -1,0 +1,21 @@
+-- =============================================================================
+-- 0005_risk.sql: format version 5
+-- =============================================================================
+--
+-- Reference page: docs/reference/en/backend/crates/gtra/migrations/0005_risk.md
+--
+-- WHAT THIS FILE IS
+-- The fifth migration of the .gtra format; see 0003_blockers.sql for how
+-- migrations run.
+--
+-- WHAT CHANGES: one new column in the table `tasks`
+--   risk   what could go wrong, in the user's words; '' = no known risk
+--
+-- HOW EXISTING (VERSION 4) DATA IS UPGRADED
+-- Every task starts without a risk.
+--
+-- RULES (see 0001_init.sql): this file is never edited once released; the
+-- next change is 0006_....sql.
+-- =============================================================================
+
+ALTER TABLE tasks ADD COLUMN risk TEXT NOT NULL DEFAULT '';

@@ -1,0 +1,54 @@
+# Cargo.toml (workspace root)
+#
+# This file turns the repository into one Rust "workspace": a group of Rust
+# packages (crates) that are built together, share one Cargo.lock (pinned
+# dependency versions) and one target/ folder (build output).
+#
+# Each member below is a folder with its own Cargo.toml.
+
+[workspace]
+# "resolver = 3" is the dependency resolver used by Rust edition 2024.
+resolver = "3"
+members = [
+    "backend/crates/model",
+    "backend/crates/engine",
+    "backend/crates/document",
+    "backend/crates/gtra",
+    "backend/src-tauri",
+    "tests/rust",
+]
+
+# Settings shared by every member crate. A member opts in with
+# `edition.workspace = true` and so on.
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+# Licence: not decided yet (open question for the project owner).
+
+# Dependency versions shared by all crates, so every crate uses the same
+# version. A crate uses one with `uuid = { workspace = true }`.
+# Every dependency needs a reason:
+[workspace.dependencies]
+# Our own crates.
+model = { path = "backend/crates/model" }
+engine = { path = "backend/crates/engine" }
+document = { path = "backend/crates/document" }
+gtra = { path = "backend/crates/gtra" }
+# uuid: random unique IDs for every entity (IDs are UUIDs). MIT/Apache-2.0.
+uuid = { version = "1", features = ["v4", "serde"] }
+# chrono: calendar dates and times without a time zone. MIT/Apache-2.0.
+chrono = { version = "0.4", default-features = false, features = ["std", "serde"] }
+# serde: turns Rust values into JSON and back (IPC with the UI). MIT/Apache-2.0.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# thiserror: short, readable error types. MIT/Apache-2.0.
+thiserror = "2"
+# rusqlite: SQLite database access for the .gtra file; "bundled" compiles
+# SQLite into the app, so users need nothing extra. MIT.
+rusqlite = { version = "0.37", features = ["bundled"] }
+
+# Optimised builds for release installers.
+[profile.release]
+lto = true
+codegen-units = 1

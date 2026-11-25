@@ -1,0 +1,8 @@
+# rust-toolchain.toml
+#
+# Pins the Rust version for every developer and for CI, so everyone compiles
+# with exactly the same compiler. rustup reads this file automatically and
+# installs this version the first time you build.
+[toolchain]
+channel = "1.93.1"
+components = ["rustfmt", "clippy"]

@@ -1,0 +1,197 @@
+/*
+ * themes.css: the colours of the light and the dark theme.
+ *
+ * What it is for:
+ *   Every colour in the app is a named CSS "custom property" (a variable,
+ *   written --like-this). Components never use raw colours such as #fff;
+ *   they use var(--app-bg) and similar. Switching theme then only means
+ *   changing the values here, not touching any component.
+ *
+ * Where it fits:
+ *   Imported by globals.css. Tailwind classes such as `bg-surface` are mapped
+ *   to these variables in globals.css (`@theme inline`). The Canvas Gantt
+ *   renderer cannot use CSS classes, so it reads the --gantt-* variables
+ *   directly (frontend/features/gantt/renderer/theme.ts).
+ *
+ * How the theme is chosen:
+ *   1. By default we follow the operating system ("prefers-color-scheme").
+ *   2. In Settings → General → Theme the user can force a theme. The app then
+ *      sets <html data-theme="light"> or <html data-theme="dark">, and the
+ *      matching rules below win over the operating-system setting.
+ */
+
+/* ---------- Light theme (the default) ---------- */
+:root {
+  /* Tells the browser which built-in colours to use for scrollbars and
+     form controls. */
+  color-scheme: light;
+
+  /* App chrome: window background, panels, borders, text. */
+  --app-bg: #f6f7f9;
+  --app-surface: #ffffff;
+  --app-border: #d9dde3;
+  --app-fg: #1d232b;
+  --app-fg-muted: #5d6673;
+  --app-accent: #2563eb;
+  --app-accent-fg: #ffffff;
+  --app-focus: #2563eb;
+  /* Error banner (e.g. the schedule could not be calculated). */
+  --app-danger-bg: #fef2f2;
+  --app-danger-fg: #991b1b;
+  --app-danger-border: #fca5a5;
+  /* Risk signs and borders: the higher the risk, the darker. */
+  --app-risk-low: #fbbf24;
+  --app-risk: #ea580c;
+  --app-risk-high: #9a3412;
+  --app-risk-approved: #15803d;
+  /* Info banner (read-only file, notes after opening a file). */
+  --app-info-bg: #eff6ff;
+  --app-info-fg: #1e3a8a;
+  --app-info-border: #93c5fd;
+
+  /* Gantt chart (read by the Canvas renderer). */
+  --gantt-bg: #ffffff;
+  --gantt-grid-line: #e3e6ea;
+  --gantt-nonworking: #f3f4f6;
+  --gantt-header-bg: #f6f7f9;
+  --gantt-header-fg: #3b4350;
+  --gantt-header-line: #d9dde3;
+  /* The thumb of the scrollbars. */
+  --app-scrollbar: #8b95a3;
+  /* Line between two projects. */
+  --project-separator: #64748b;
+  /* Alpha of the projects' background colours (lib/projectTint.ts). */
+  --project-tint: 0.1;
+  /* Task = blue, sub-task = cyan, manual = dark green. Red is reserved
+     for blockers. */
+  --gantt-bar-project: #334155;
+  --gantt-bar: #2563eb;
+  --gantt-bar-subtask: #06b6d4;
+  --gantt-bar-critical: #111827;
+  --gantt-link: #6b7280;
+  --gantt-selection: #dbeafe;
+  --gantt-today: rgba(245, 158, 11, 0.25);
+  --gantt-today-header: #f59e0b;
+  --gantt-today-header-fg: #111827;
+  --gantt-selection-outline: #1d4ed8;
+  --gantt-bar-manual: rgba(21, 128, 61, 0.8);
+  --gantt-deadline: #15803d;
+  --gantt-deadline-missed: #dc2626;
+  --gantt-late-start: #f97316;
+  --gantt-constraint: #7c3aed;
+  --gantt-drag-preview: #1d4ed8;
+  /* Blocked time: red with dark red stripes and outline.
+     The stripes tell it apart without colour vision. */
+  --gantt-bar-blocked: #ef4444;
+  --gantt-bar-blocked-line: #7f1d1d;
+}
+
+/* ---------- Dark theme, chosen by the operating system ---------- */
+/* ":not([data-theme='light'])" means: unless the user forced light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --app-bg: #14171c;
+    --app-surface: #1b1f26;
+    --app-border: #2e343d;
+    --app-fg: #e6e9ee;
+    --app-fg-muted: #9aa3af;
+    --app-accent: #60a5fa;
+    --app-accent-fg: #0b1220;
+    --app-focus: #60a5fa;
+    --app-danger-bg: #3b1416;
+    --app-danger-fg: #fecaca;
+    --app-danger-border: #7f1d1d;
+    --app-risk-low: #fde68a;
+    --app-risk: #fb923c;
+    --app-risk-high: #ea580c;
+    --app-risk-approved: #4ade80;
+    --app-info-bg: #13243f;
+    --app-info-fg: #bfdbfe;
+    --app-info-border: #1e40af;
+
+    --gantt-bg: #1b1f26;
+    --gantt-grid-line: #2a3039;
+    --gantt-nonworking: #20252d;
+    --gantt-header-bg: #171a20;
+    --gantt-header-fg: #c3c9d2;
+    --gantt-header-line: #2e343d;
+    --app-scrollbar: #6b7685;
+    --project-separator: #94a3b8;
+    --project-tint: 0.05;
+    --gantt-bar-project: #cbd5e1;
+    --gantt-bar: #3b82f6;
+    --gantt-bar-subtask: #22d3ee;
+    --gantt-bar-critical: #f9fafb;
+    --gantt-link: #8b94a1;
+    --gantt-selection: #1e3a5f;
+    --gantt-today: rgba(245, 158, 11, 0.22);
+    --gantt-today-header: #f59e0b;
+    --gantt-today-header-fg: #111827;
+    --gantt-selection-outline: #93c5fd;
+    --gantt-bar-manual: rgba(22, 163, 74, 0.8);
+    --gantt-deadline: #4ade80;
+    --gantt-deadline-missed: #f87171;
+    --gantt-late-start: #fb923c;
+    --gantt-constraint: #c4b5fd;
+    --gantt-drag-preview: #93c5fd;
+    --gantt-bar-blocked: #dc2626;
+    --gantt-bar-blocked-line: #fecaca;
+  }
+}
+
+/* ---------- Dark theme, forced by the user (Settings → General → Theme) ---------- */
+/* Same values as above (CSS cannot share them between a media query and
+   an attribute rule), so they are kept in sync by hand. Set by
+   frontend/features/settings/useApplySettings.ts. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --app-bg: #14171c;
+  --app-surface: #1b1f26;
+  --app-border: #2e343d;
+  --app-fg: #e6e9ee;
+  --app-fg-muted: #9aa3af;
+  --app-accent: #60a5fa;
+  --app-accent-fg: #0b1220;
+  --app-focus: #60a5fa;
+  --app-danger-bg: #3b1416;
+  --app-danger-fg: #fecaca;
+  --app-danger-border: #7f1d1d;
+  --app-risk-low: #fde68a;
+  --app-risk: #fb923c;
+  --app-risk-high: #ea580c;
+  --app-risk-approved: #4ade80;
+  --app-info-bg: #13243f;
+  --app-info-fg: #bfdbfe;
+  --app-info-border: #1e40af;
+
+  --gantt-bg: #1b1f26;
+  --gantt-grid-line: #2a3039;
+  --gantt-nonworking: #20252d;
+  --gantt-header-bg: #171a20;
+  --gantt-header-fg: #c3c9d2;
+  --gantt-header-line: #2e343d;
+  --app-scrollbar: #6b7685;
+  --project-separator: #94a3b8;
+  --project-tint: 0.05;
+  --gantt-bar-project: #cbd5e1;
+  --gantt-bar: #3b82f6;
+  --gantt-bar-subtask: #22d3ee;
+  --gantt-bar-critical: #f9fafb;
+  --gantt-link: #8b94a1;
+  --gantt-selection: #1e3a5f;
+  --gantt-today: rgba(245, 158, 11, 0.22);
+  --gantt-today-header: #f59e0b;
+  --gantt-today-header-fg: #111827;
+  --gantt-selection-outline: #93c5fd;
+  --gantt-bar-manual: rgba(22, 163, 74, 0.8);
+  --gantt-deadline: #4ade80;
+  --gantt-deadline-missed: #f87171;
+  --gantt-late-start: #fb923c;
+  --gantt-constraint: #c4b5fd;
+  --gantt-drag-preview: #93c5fd;
+  --gantt-bar-blocked: #dc2626;
+  --gantt-bar-blocked-line: #fecaca;
+}

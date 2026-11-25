@@ -1,0 +1,24 @@
+# Crate "document": the open project session: project + schedule result + edit commands.
+#3 and the reference pages in the project documentation
+[package]
+name = "document"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Our domain types: Project, Task, Dependency, the UUID newtypes.
+model = { workspace = true }
+# The scheduling engine: the document reruns it after every command.
+engine = { workspace = true }
+# UUIDs: change records name the changed item by its UUID; BatchId is one.
+uuid = { workspace = true }
+# Dates and times: project start, schedule dates, journal timestamps.
+chrono = { workspace = true }
+# serde: commands arrive from the UI as JSON; snapshots go back as JSON.
+serde = { workspace = true }
+# serde_json: old and new values in change records are JSON values, so one
+# record type can hold a name (text), a duration (number) or a date.
+serde_json = { workspace = true }
+# thiserror: readable error messages for DocumentError.
+thiserror = { workspace = true }

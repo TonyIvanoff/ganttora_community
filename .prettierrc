@@ -1,0 +1,20 @@
+# .prettierrc: settings for Prettier, the automatic code formatter.
+#
+# Prettier rewrites spacing, quotes and line breaks so all code looks the
+# same, whoever wrote it. `pnpm format` formats every file;
+# `pnpm format:check` only reports files that are not formatted (used in CI).
+# This file is written in YAML, which allows comments (# like this).
+# Files Prettier must skip are listed in .prettierignore.
+
+# Wrap lines longer than 100 characters.
+printWidth: 100
+# Use "double quotes" for strings.
+singleQuote: false
+# End statements with a semicolon;
+semi: true
+# Add a trailing comma after the last item of multi-line lists: smaller diffs.
+trailingComma: all
+# Indent with 2 spaces (same as .editorconfig).
+tabWidth: 2
+# Always unix line endings (same as .editorconfig).
+endOfLine: lf

@@ -1,0 +1,17 @@
+# Crate "engine": the scheduling engine (critical path method). Deterministic, no I/O.
+# See the project documentation and the reference pages in the project documentation
+[package]
+name = "engine"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Our domain types: Project, Task, Dependency, Calendar, Duration.
+model = { workspace = true }
+# Dates and times without time zones (NaiveDate, NaiveDateTime).
+chrono = { workspace = true }
+# serde: lets the UI receive ScheduleResult as JSON.
+serde = { workspace = true }
+# thiserror: readable error messages for ScheduleError and CalendarError.
+thiserror = { workspace = true }

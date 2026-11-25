@@ -1,0 +1,40 @@
+# --- Operating system files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Editors ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+
+# --- Rust build output ---
+target/
+
+# --- JavaScript / Vite ---
+node_modules/
+dist/
+*.log
+
+# --- Tauri sidecar binaries (built by scripts/build-sidecar.sh or CI) ---
+backend/src-tauri/binaries/*
+!backend/src-tauri/binaries/.gitkeep
+
+# --- Secrets (never commit) ---
+.env
+.env.*
+*.pem
+*.p12
+*.key
+
+# --- Local test output ---
+coverage/
+playwright-report/
+test-results/
+
+tests/fixtures/mpp/mpp14relations.mpp
+
+# --- Not part of the public repository ---
+.claude/

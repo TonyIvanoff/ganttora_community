@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions of the main window. The UI may call only what is listed here, plus the app's own commands registered in src/lib.rs. Keep this list as short as possible (least privilege). dialog:allow-open and dialog:allow-save let the UI show the system's Open and Save As windows; the UI only receives the path the user picked, and the file itself is read and written by our own Rust commands (src/ipc/file.rs). dialog:allow-message lets the UI ask 'Discard unsaved changes?' before New or Open. core:window:allow-set-title lets the UI put the file name (and a dot for unsaved changes) into the window's title bar. core:window:allow-destroy lets the UI close the window after it has asked 'Save / Don't save / Cancel' for unsaved changes (the close button is held back until the user answers). core:webview:allow-set-webview-zoom lets the UI zoom itself (frontend/lib/uiZoom.ts).",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-title",
+    "core:window:allow-destroy",
+    "core:webview:allow-set-webview-zoom",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message"
+  ]
+}

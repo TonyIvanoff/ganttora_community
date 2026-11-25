@@ -1,0 +1,117 @@
+// build.gradle: how to build the MPXJ sidecar (a small Java program).
+//
+// WHAT THIS FILE IS FOR
+// It tells Gradle (the Java build tool) which libraries to download, how to
+// compile src/main/java/com/ganttora/mpxj/MppToMspdi.java, and how to
+// package the result in two ways:
+//
+//   1. a "fat jar"  (task: shadowJar)    build/libs/mpxj-sidecar-all.jar
+//      One .jar file holding our code AND all libraries. Runs anywhere Java
+//      is installed: `java -jar build/libs/mpxj-sidecar-all.jar file.mpp`.
+//      Used by developers and by tests on machines without GraalVM.
+//
+//   2. a native program  (task: nativeCompile)  build/native/nativeCompile/mpxj-sidecar
+//      Made by GraalVM native-image. Needs NO Java on the user's computer.
+//      This is what ships inside Ganttora. Must be built once per operating
+//      system and CPU type (done in CI), see README.md.
+//
+// HOW TO RUN IT
+// Always through the Gradle "wrapper" script in this folder, which downloads
+// the exact Gradle version pinned in gradle/wrapper/gradle-wrapper.properties:
+//     ./gradlew shadowJar        (macOS / Linux)
+//     gradlew.bat shadowJar      (Windows)
+// Or simply run scripts/build-sidecar.sh from the repository root.
+//
+// Beginner note: this file is written in Groovy, a scripting language that
+// runs on Java. Each block like `plugins { ... }` is a section of settings.
+//
+
+plugins {
+    // "java": compile Java code (adds the compileJava and jar tasks).
+    id 'java'
+    // "application": knows which class holds main(); adds the `run` task.
+    id 'application'
+    // Shadow builds the fat jar. It also merges the META-INF/services files
+    // of all libraries correctly (a plain jar would overwrite them and break
+    // XML handling). Licence: Apache-2.0. Pinned version.
+    id 'com.gradleup.shadow' version '9.6.1'
+    // GraalVM Native Build Tools: adds the nativeCompile task that runs
+    // native-image. Applying the plugin does NOT need GraalVM installed;
+    // only running nativeCompile does. Licence: UPL-1.0. Pinned version.
+    id 'org.graalvm.buildtools.native' version '1.1.18'
+}
+
+// Our "group" (like a package name for the build) and version.
+group = 'com.ganttora'
+version = '0.1.0'
+
+// Where to download libraries from: Maven Central, the main public library
+// store for Java.
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // MPXJ: reads .mpp (and many other project formats) and writes MSPDI.
+    // Licence: LGPL-2.1-or-later (see README.md, "Licence notes").
+    // Pinned to an exact version so every build is the same. To upgrade,
+    // change it here AND in README.md, then re-run the sample conversion.
+    implementation 'net.sf.mpxj:mpxj:16.11.0'
+}
+
+java {
+    // Compile for Java 17. Java 17 is a long-term-support (LTS) version;
+    // the GraalVM used in CI (Java 21 or newer) can also compile it.
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    // The class whose main() method starts the program.
+    mainClass = 'com.ganttora.mpxj.MppToMspdi'
+}
+
+tasks.named('shadowJar') {
+    // Name the fat jar mpxj-sidecar-all.jar (no version in the name), so
+    // scripts can find it without knowing the version.
+    archiveFileName = 'mpxj-sidecar-all.jar'
+    // Combine META-INF/services files from all libraries instead of keeping
+    // only one. Java uses these files to find plug-ins such as the XML
+    // (JAXB) implementation that MSPDIWriter needs.
+    mergeServiceFiles()
+    // When two libraries contain a file with the same name, which one wins?
+    // - Service files: keep ALL copies (INCLUDE) so mergeServiceFiles() can
+    //   combine them into one.
+    // - Every other file: keep only the first copy (EXCLUDE).
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    filesNotMatching('META-INF/services/**') {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}
+
+graalvmNative {
+    // Do not try to download extra GraalVM metadata from the internet
+    // during builds; everything we need is in native-image/ (reproducible).
+    metadataRepository {
+        enabled = false
+    }
+    binaries {
+        main {
+            // The output program is called "mpxj-sidecar" (mpxj-sidecar.exe
+            // on Windows). scripts/build-sidecar.sh renames it for Tauri.
+            imageName = 'mpxj-sidecar'
+            mainClass = 'com.ganttora.mpxj.MppToMspdi'
+            // Use the reflection / resource configuration in native-image/.
+            // native-image removes every class it thinks is unused; this
+            // config lists the ones MPXJ loads "by name" at run time, which
+            // native-image cannot see on its own. See native-image/README.md.
+            configurationFileDirectories.from(file('native-image'))
+            // --no-fallback: fail the build instead of silently producing a
+            // "fallback" program that still needs Java installed.
+            buildArgs.add('--no-fallback')
+            // If the native build fails, print the full error details.
+            buildArgs.add('-H:+ReportExceptionStackTraces')
+        }
+    }
+}

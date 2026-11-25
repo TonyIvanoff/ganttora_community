@@ -1,0 +1,99 @@
+/*
+ * globals.css: the one global stylesheet of the app.
+ *
+ * What it is for:
+ *   - Loads Tailwind CSS (v4). Tailwind gives us small ready-made classes
+ *     such as `flex`, `p-2` or `text-sm`, which we combine in the JSX instead
+ *     of writing our own CSS for every element.
+ *   - Loads the theme colours (themes.css) and tells Tailwind about them, so
+ *     classes like `bg-surface` or `text-fg-muted` use the theme variables.
+ *   - Sets a few base rules for the whole page (font, full-height layout).
+ *
+ * Where it fits:
+ *   Imported once by frontend/main.tsx. Vite and the Tailwind plugin
+ *   (vite.config.ts) turn it into the final CSS file.
+ *
+ * Beginner note: Tailwind v4 is configured here, in CSS, with the `@theme`
+ * block. Older Tailwind versions used a separate tailwind.config.ts file;
+ * v4 no longer needs one.
+ */
+
+@import "tailwindcss";
+@import "./themes.css";
+
+/*
+ * `@theme inline` creates Tailwind classes from our theme variables.
+ * For example `--color-surface` creates `bg-surface`, `text-surface`,
+ * `border-surface`… "inline" means the class uses var(--app-surface) itself,
+ * so the colour follows the theme when it changes at run time.
+ */
+@theme inline {
+  --color-app: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-line: var(--app-border);
+  --color-fg: var(--app-fg);
+  --color-fg-muted: var(--app-fg-muted);
+  --color-accent: var(--app-accent);
+  --color-accent-fg: var(--app-accent-fg);
+  --color-focus: var(--app-focus);
+  --color-danger-bg: var(--app-danger-bg);
+  --color-danger-fg: var(--app-danger-fg);
+  --color-danger-line: var(--app-danger-border);
+  --color-info-bg: var(--app-info-bg);
+  --color-info-fg: var(--app-info-fg);
+  --color-info-line: var(--app-info-border);
+
+  /*
+   * The UI font: each operating system's own interface font. The list ends
+   * with fonts that contain Chinese characters (CJK), so Chinese text has a
+   * font on every platform, and finally the generic `sans-serif`.
+   */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial,
+    "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+
+/* The app fills the whole window and never scrolls as a page: only the
+   views inside it scroll. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--app-bg);
+  color: var(--app-fg);
+  font-family: var(--font-sans);
+  /* Smoother text on macOS. */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A clearly visible focus ring for keyboard users, on every focusable
+   element (keyboard access for every action). */
+:focus-visible {
+  outline: 2px solid var(--app-focus);
+  outline-offset: -2px;
+}
+
+/*
+ * Scrollbars that are always visible, for the task list and the chart.
+ * macOS hides its own ones when no mouse is connected; a scrollbar with
+ * its own style is never hidden. The colours come from the theme.
+ */
+.visible-scrollbars::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.visible-scrollbars::-webkit-scrollbar-track,
+.visible-scrollbars::-webkit-scrollbar-corner {
+  background: var(--app-bg);
+}
+.visible-scrollbars::-webkit-scrollbar-thumb {
+  /* The border in the track's colour makes the thumb look thinner. */
+  border: 2px solid var(--app-bg);
+  border-radius: 6px;
+  background: var(--app-scrollbar);
+}

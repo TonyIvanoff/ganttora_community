@@ -1,0 +1,32 @@
+# Crate "gtra": the .gtra file format (a SQLite database): create, open,
+# upgrade and save projects safely.
+#4 and the reference pages in the project documentation
+[package]
+name = "gtra"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# rusqlite: talks to SQLite, the database inside every .gtra file.
+rusqlite = { workspace = true }
+# uuid: new project ids and unique temporary file names.
+uuid = { workspace = true }
+# chrono: formats timestamps such as "2027-02-15T10:42:07Z".
+chrono = { workspace = true }
+# thiserror: generates the messages of GtraError.
+thiserror = { workspace = true }
+# model: the project's domain types (Project, Task, Dependency, Calendar).
+# read.rs turns the tables into a model::Project, write.rs does the reverse.
+model = { workspace = true }
+# serde_json: the old and new values of a journal record (model::ChangeRecord)
+# are JSON values; journal.rs turns them into text for the `journal` table and
+# back. Licence MIT OR Apache-2.0, maintained by the serde team, already used
+# by the model crate.
+serde_json = { workspace = true }
+
+# Dependencies used only by examples (and doc tests), not by the library.
+[dev-dependencies]
+# engine: the teaching example examples/save_open.rs schedules the project it
+# has just opened. gtra itself never schedules (dependency direction).
+engine = { workspace = true }

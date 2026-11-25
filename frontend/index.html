@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  index.html: the single HTML page of the app.
+
+  Vite serves this file (dev) or copies it into dist/ (build). The desktop
+  window (Tauri) loads it. It only contains an empty <div id="root">;
+  React (frontend/main.tsx) fills that div with the whole user interface.
+
+  The <title> is replaced at start-up with the translated app name
+  (frontend/App.tsx), so no user-visible text is hard-coded here.
+
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Tell the browser both themes are supported, so the first paint
+         already has the right background (no white flash in dark mode). -->
+    <meta name="color-scheme" content="light dark" />
+    <title></title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- type="module" = modern JavaScript with import/export. -->
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

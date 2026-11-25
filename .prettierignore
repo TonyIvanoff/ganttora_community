@@ -1,0 +1,20 @@
+# .prettierignore: files Prettier must not reformat.
+
+# Build output and dependencies.
+dist/
+target/
+node_modules/
+pnpm-lock.yaml
+
+# Rust code has its own formatter (rustfmt). Tauri generates backend/src-tauri/gen/.
+backend/
+
+# Documentation is written by hand by the docs team; Markdown is not reformatted.
+*.md
+docs/
+
+# Generated from Rust; never edited by hand.
+frontend/ipc/types.ts
+
+# Temporary copies of the project made by development tools.
+.claude/

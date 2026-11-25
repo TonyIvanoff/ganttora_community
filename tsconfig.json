@@ -1,0 +1,66 @@
+// tsconfig.json: settings for the TypeScript compiler (`tsc`).
+//
+// TypeScript is JavaScript plus *types*. The compiler reads this file to know
+// which files to check and how strict to be. We only use `tsc` to *check*
+// the code (`pnpm typecheck` runs `tsc --noEmit`, "no emit" = write no
+// output files). Vite does the real build into JavaScript.
+//
+// This file may contain comments even though it ends in .json: TypeScript
+// reads it in a relaxed "JSON with comments" mode.
+//
+{
+  "compilerOptions": {
+    // Which JavaScript version the checked code may use. ES2022 is supported
+    // by every WebView Tauri 2 runs on (WebView2, WKWebView, WebKitGTK).
+    "target": "ES2022",
+    // Built-in type definitions: modern JavaScript plus the browser APIs
+    // (DOM = document, window, canvas…).
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // "ESNext" modules = the `import` / `export` syntax. "bundler" tells
+    // TypeScript that a bundler (Vite) resolves imports, as it does for us.
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // Lets us `import en from "@locales/en.json"` and get typed JSON.
+    "resolveJsonModule": true,
+    // Each file must be understandable on its own (Vite compiles files one
+    // at a time, so it cannot look at other files to understand one).
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    // JSX is the HTML-like syntax inside .tsx files. "react-jsx" means React
+    // 17+ style: no need to `import React` in every file.
+    "jsx": "react-jsx",
+    // Only check, never write .js files (Vite builds them).
+    "noEmit": true,
+    // Global type packages to load: Vite's (for `import.meta.env` and CSS
+    // imports) and Node's (for vite.config.ts, which runs in Node).
+    "types": ["vite/client", "node"],
+    // Skip re-checking the type files inside node_modules: faster.
+    "skipLibCheck": true,
+
+    // --- Strictness: catch as many mistakes as possible before running ---
+    // "strict" switches on all the main safety checks, for example that a
+    // value which might be `null` is checked before it is used.
+    "strict": true,
+    // Reading `array[i]` may give `undefined` (index out of range); make us
+    // handle that case. Important in renderer loops.
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+
+    // --- Path aliases ---
+    // Short names for long import paths, so a file deep in a folder can
+    // write `@frontend/state/store` instead of `../../../state/store`.
+    // vite.config.ts defines the same aliases for the build.
+    "paths": {
+      "@frontend/*": ["./frontend/*"],
+      "@locales/*": ["./locales/*"]
+    }
+  },
+  // Which files TypeScript checks.
+  "include": ["frontend", "tests/frontend", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "target"]
+}
