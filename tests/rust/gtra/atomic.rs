@@ -20,7 +20,7 @@
 //! that does not exist.
 
 use crate::{files_in, normalized, open_ok, path_in, save_ok, temp_dir};
-use ganttora_tests::{days, row_id, shed};
+use ganttora_tests::shed;
 use gtra::GtraError;
 use gtra::atomic::{atomic_write, atomic_write_bytes};
 use std::fs;
@@ -146,6 +146,9 @@ fn path_without_file_name_is_refused() {
 #[cfg(unix)]
 #[test]
 fn read_only_folder_keeps_the_old_file() {
+    // Imported here, not at the top of the file: on Windows this test does not
+    // exist, so the imports would be "unused" there and fail the lint.
+    use ganttora_tests::{days, row_id};
     use std::os::unix::fs::PermissionsExt;
 
     let dir = temp_dir();

@@ -28,7 +28,7 @@
  *   - Pure function: text in, commands out. Easy to test.
  */
 
-import type { Command, IsoDateTime, TaskMode, TaskRow } from "@frontend/ipc/types";
+import type { Command, Constraint, IsoDateTime, TaskMode, TaskRow } from "@frontend/ipc/types";
 import { localToday } from "@frontend/features/gantt/renderer/dates";
 import { parseDuration } from "@frontend/lib/units";
 import { linkCommands, parsePredecessors, type PredecessorContext } from "./predecessors";
@@ -51,6 +51,10 @@ export const GRID_COLUMN_IDS = [
   "finish",
   "plannedFinish",
   "actualFinish",
+  "constraintType",
+  "constraintDate",
+  "deadline",
+  "calendar",
   "predecessors",
   "mode",
 ] as const;
@@ -64,7 +68,12 @@ export const EDITABLE_COLUMNS: ReadonlySet<GridColumnId> = new Set<GridColumnId>
   "duration",
   "start",
   "finish",
+  "plannedFinish",
   "actualFinish",
+  "constraintType",
+  "constraintDate",
+  "deadline",
+  "calendar",
   "complete",
   "predecessors",
   "mode",
@@ -84,10 +93,26 @@ export function isEditable(column: GridColumnId, task: TaskRow): boolean {
   if (!EDITABLE_COLUMNS.has(column)) return false;
   // A project may have its own start date; its other values come from its tasks.
   if (task.isProject === true && column === "start") return true;
-  const rolledUp = ["duration", "start", "finish", "actualFinish", "complete"].includes(column);
+  const rolledUp = [
+    "duration",
+    "start",
+    "finish",
+    "plannedFinish",
+    "actualFinish",
+    "complete",
+  ].includes(column);
   if ((task.isSummary || task.isProject === true) && rolledUp) return false;
   // A project is always what its tasks make it, and has no predecessors.
-  if (task.isProject === true && (column === "mode" || column === "predecessors")) return false;
+  // Nor has it constraints, a deadline or a task calendar (as in its window).
+  const tasksOnly = [
+    "mode",
+    "predecessors",
+    "constraintType",
+    "constraintDate",
+    "deadline",
+    "calendar",
+  ].includes(column);
+  if (task.isProject === true && tasksOnly) return false;
   // A manual task's finish would need a new duration computed from dates:
   // that is scheduling, which belongs in Rust. Edit the duration instead.
   if (column === "finish" && task.mode === "manual") return false;
@@ -167,6 +192,101 @@ export function percentCommands(
   return commands;
 }
 
+/**
+ * The commands that set a task's actual finish. Giving one means the task is
+ * done, so its progress becomes 100 %.
+ *
+ * @param task - The task as it is now.
+ * @param day - "YYYY-MM-DD", or "" to clear it.
+ * @returns The commands (none if nothing changed), or `null` for a wrong date.
+ *
+ * @example
+ * actualFinishCommands(task, "2027-03-05");
+ */
+export function actualFinishCommands(task: TaskRow, day: string): Command[] | null {
+  const id = task.id;
+  const old = task.actualFinish ?? null;
+  if (day === dayOf(old)) return [];
+  if (day === "") return [{ type: "setTaskActualFinish", id, actualFinish: null }];
+  const actualFinish = withDate(old ?? task.finish, day);
+  if (actualFinish === null) return null;
+  const done: Command[] =
+    task.percentComplete === 100 ? [] : [{ type: "setTaskPercentComplete", id, percent: 100 }];
+  return [...done, { type: "setTaskActualFinish", id, actualFinish }];
+}
+
+/**
+ * The commands that set or clear a task's planned finish.
+ *
+ * @param task - The task as it is now.
+ * @param day - "YYYY-MM-DD", or "" for no plan.
+ * @returns The commands (none if nothing changed), or `null` for a wrong date.
+ *
+ * @example
+ * plannedFinishCommands(task, ""); // clears the plan
+ */
+export function plannedFinishCommands(task: TaskRow, day: string): Command[] | null {
+  const id = task.id;
+  const old = task.plannedFinish ?? null;
+  if (day === dayOf(old)) return [];
+  if (day === "") return [{ type: "setTaskPlannedFinish", id, plannedFinish: null }];
+  const plannedFinish = withDate(old ?? task.finish, day);
+  return plannedFinish === null ? null : [{ type: "setTaskPlannedFinish", id, plannedFinish }];
+}
+
+/**
+ * The commands that set or clear a task's deadline.
+ *
+ * @param task - The task as it is now.
+ * @param day - "YYYY-MM-DD", or "" for no deadline.
+ * @returns The commands (none if nothing changed), or `null` for a wrong date.
+ *
+ * @example
+ * deadlineCommands(task, "2027-03-12");
+ */
+export function deadlineCommands(task: TaskRow, day: string): Command[] | null {
+  const id = task.id;
+  if (day === dayOf(task.deadline)) return [];
+  if (day === "") return [{ type: "setTaskDeadline", id, deadline: null }];
+  const deadline = withDate(task.deadline ?? task.finish, day);
+  return deadline === null ? null : [{ type: "setTaskDeadline", id, deadline }];
+}
+
+/** The dated constraint types that are about the task's *start*. */
+const START_TYPES: ReadonlySet<Constraint["type"]> = new Set([
+  "startNoEarlierThan",
+  "startNoLaterThan",
+  "mustStartOn",
+] as const);
+
+/**
+ * Builds a constraint with a sensible time of day: the old constraint's, or
+ * the task's start (start kinds) or finish (finish kinds).
+ *
+ * @param task - The task as it is now.
+ * @param type - The wanted type.
+ * @param day - "YYYY-MM-DD"; not used by the two types without a date.
+ * @returns The constraint, or `null` if its date is missing or wrong.
+ *
+ * @example
+ * constraintFor(task, "mustStartOn", "2027-03-08");
+ */
+export function constraintFor(
+  task: TaskRow,
+  type: Constraint["type"],
+  day: string,
+): Constraint | null {
+  if (type === "asSoonAsPossible" || type === "asLateAsPossible") return { type };
+  const old = task.constraint;
+  const isStart = START_TYPES.has(type);
+  // A time from the other end of the day would be wrong: "start no earlier
+  // than 17:00" would push the task to the next morning.
+  const keepTime = "date" in old && START_TYPES.has(old.type) === isStart;
+  const reference = keepTime ? old.date : isStart ? task.start : task.finish;
+  const date = withDate(reference, day);
+  return date === null ? null : { type, date };
+}
+
 /** What {@link commandsForCellEdit} answers. */
 export type CellEditResult =
   /** The commands to send (empty: nothing changed). */
@@ -229,19 +349,43 @@ export function commandsForCellEdit(
     }
 
     case "actualFinish": {
-      const old = task.actualFinish ?? null;
-      if (text === dayOf(old)) return { ok: true, commands: [] };
-      if (text === "") {
-        return { ok: true, commands: [{ type: "setTaskActualFinish", id, actualFinish: null }] };
-      }
-      const actualFinish = withDate(old ?? task.finish, text);
-      if (actualFinish === null) return { ok: false, key: "grid.invalid.date" };
-      const done: Command[] =
-        task.percentComplete === 100 ? [] : [{ type: "setTaskPercentComplete", id, percent: 100 }];
-      return {
-        ok: true,
-        commands: [...done, { type: "setTaskActualFinish", id, actualFinish }],
-      };
+      const commands = actualFinishCommands(task, text);
+      return commands === null ? { ok: false, key: "grid.invalid.date" } : { ok: true, commands };
+    }
+
+    case "plannedFinish":
+    case "deadline": {
+      const commands =
+        column === "deadline" ? deadlineCommands(task, text) : plannedFinishCommands(task, text);
+      return commands === null ? { ok: false, key: "grid.invalid.date" } : { ok: true, commands };
+    }
+
+    case "constraintType": {
+      // The text comes from the list of types (see `editorOptions`).
+      const type = text as Constraint["type"];
+      const old = task.constraint;
+      if (type === old.type) return { ok: true, commands: [] };
+      // A type that needs a date starts with the task's own.
+      const own = START_TYPES.has(type) ? task.start : task.finish;
+      const constraint = constraintFor(task, type, dayOf("date" in old ? old.date : own));
+      if (constraint === null) return { ok: false, key: "taskInfo.invalid.constraintDate" };
+      return { ok: true, commands: [{ type: "setTaskConstraint", id, constraint }] };
+    }
+
+    case "constraintDate": {
+      const old = task.constraint;
+      if (text === ("date" in old ? dayOf(old.date) : "")) return { ok: true, commands: [] };
+      // A date alone means "start no earlier than", as a typed start does.
+      const type = "date" in old ? old.type : "startNoEarlierThan";
+      const constraint = constraintFor(task, type, text);
+      if (constraint === null) return { ok: false, key: "taskInfo.invalid.constraintDate" };
+      return { ok: true, commands: [{ type: "setTaskConstraint", id, constraint }] };
+    }
+
+    case "calendar": {
+      const calendarId = text === "" ? null : text;
+      if (calendarId === task.calendarId) return { ok: true, commands: [] };
+      return { ok: true, commands: [{ type: "setTaskCalendar", id, calendarId }] };
     }
 
     case "start": {

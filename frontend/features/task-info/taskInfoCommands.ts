@@ -25,24 +25,28 @@
  *     start (for start constraints) or finish (for finish constraints).
  *   - **Blockers** are edited on their own tab; their
  *     commands are built by `blockers.ts` and added to the same batch.
+ *   - **A typed start** works as in the grid: on an automatic task it becomes
+ *     a "Start No Earlier Than" constraint (shown in the form at once, see
+ *     {@link withStart}); on a manual task it is stored as typed.
  *   - Pure functions: easy to test.
  */
 
-import { dayOf, withDate } from "@frontend/features/grid/cellEdit";
+import {
+  actualFinishCommands,
+  constraintFor,
+  dayOf,
+  deadlineCommands,
+  isEditable,
+  plannedFinishCommands,
+  withDate,
+} from "@frontend/features/grid/cellEdit";
 import {
   formatLag,
   linkCommands,
   type PredecessorContext,
   type WantedLink,
 } from "@frontend/features/grid/predecessors";
-import type {
-  Command,
-  Constraint,
-  DependencyType,
-  IsoDateTime,
-  TaskMode,
-  TaskRow,
-} from "@frontend/ipc/types";
+import type { Command, Constraint, DependencyType, TaskMode, TaskRow } from "@frontend/ipc/types";
 import { minutesToDays, parseDuration, parseLag } from "@frontend/lib/units";
 import { blockerCommands, type DraftBlocker } from "./blockers";
 import { riskCommands, type DraftRisk } from "./risks";
@@ -81,6 +85,12 @@ export interface TaskInfoDraft {
   hyperlink: string;
   /** Notes text. */
   notes: string;
+  /** Start day "YYYY-MM-DD" ("" if the task has no calculated start). */
+  start: string;
+  /** Planned finish day, or "" for no plan (see "Set plan"). */
+  plannedFinish: string;
+  /** Actual finish day, or "" while not finished. */
+  actualFinish: string;
   /** Constraint type. */
   constraintType: Constraint["type"];
   /** Constraint day "YYYY-MM-DD" ("" for the two kinds without a date). */
@@ -103,7 +113,15 @@ export interface TaskInfoDraft {
 
 /** The fields of the dialog an error can point at. */
 export type DraftField =
-  "duration" | "constraintDate" | "deadline" | "links" | "blockers" | "risks";
+  | "duration"
+  | "start"
+  | "plannedFinish"
+  | "actualFinish"
+  | "constraintDate"
+  | "deadline"
+  | "links"
+  | "blockers"
+  | "risks";
 
 /** What {@link commandsFromDraft} answers. */
 export type DraftResult =
@@ -126,13 +144,6 @@ const DATED: ReadonlySet<Constraint["type"]> = new Set([
   "finishNoLaterThan",
   "mustStartOn",
   "mustFinishOn",
-]);
-
-/** The dated types that are about the task's *start*. */
-const START_TYPES: ReadonlySet<Constraint["type"]> = new Set([
-  "startNoEarlierThan",
-  "startNoLaterThan",
-  "mustStartOn",
 ]);
 
 /**
@@ -177,6 +188,9 @@ export function draftFromTask(
     milestone: task.isMilestone && task.durationMinutes > 0,
     hyperlink: task.hyperlink,
     notes: task.notes,
+    start: dayOf(task.start),
+    plannedFinish: dayOf(task.plannedFinish ?? null),
+    actualFinish: dayOf(task.actualFinish ?? null),
     constraintType: constraint.type,
     constraintDate: "date" in constraint ? dayOf(constraint.date) : "",
     deadline: dayOf(task.deadline),
@@ -191,6 +205,63 @@ export function draftFromTask(
 }
 
 /**
+ * The form after the user typed a start date. On an automatic task the
+ * constraint fields change with it, so the user sees what the date means.
+ *
+ * @param task - The task as it is now.
+ * @param draft - The draft.
+ * @param start - The typed day; the task's own day undoes the change.
+ * @returns The changed fields.
+ *
+ * @example
+ * withStart(task, draft, "2027-03-08");
+ * // { start: "2027-03-08", constraintType: "startNoEarlierThan", constraintDate: "2027-03-08" }
+ */
+export function withStart(
+  task: TaskRow,
+  draft: TaskInfoDraft,
+  start: string,
+): Pick<TaskInfoDraft, "start" | "constraintType" | "constraintDate"> {
+  const own = dayOf(task.start);
+  if (draft.mode === "auto" && start !== own) {
+    return { start, constraintType: "startNoEarlierThan", constraintDate: start };
+  }
+  // Typed back to the task's own day, or a manual task: if an earlier typed
+  // start had set the constraint, the old constraint returns. A constraint
+  // the user chose in the form stays.
+  const { constraint } = task;
+  const setByStart =
+    draft.start !== own &&
+    draft.constraintType === "startNoEarlierThan" &&
+    draft.constraintDate === draft.start;
+  if (!setByStart) {
+    return { start, constraintType: draft.constraintType, constraintDate: draft.constraintDate };
+  }
+  return {
+    start,
+    constraintType: constraint.type,
+    constraintDate: "date" in constraint ? dayOf(constraint.date) : "",
+  };
+}
+
+/**
+ * The form after the user chose another scheduling mode: a typed start then
+ * means something else, so it is applied again in the new mode.
+ *
+ * @param task - The task as it is now.
+ * @param draft - The draft.
+ * @param mode - The chosen mode.
+ * @returns The changed fields.
+ */
+export function withMode(
+  task: TaskRow,
+  draft: TaskInfoDraft,
+  mode: TaskMode,
+): Partial<TaskInfoDraft> {
+  return { mode, ...withStart(task, { ...draft, mode }, draft.start) };
+}
+
+/**
  * Builds the constraint from the draft, keeping a sensible time of day.
  *
  * @param task - The task as it is now.
@@ -200,11 +271,12 @@ export function draftFromTask(
 function draftConstraint(task: TaskRow, draft: TaskInfoDraft): Constraint | null {
   const type = draft.constraintType;
   if (type === "asSoonAsPossible" || type === "asLateAsPossible") return { type };
-  const old = task.constraint;
-  const reference: IsoDateTime | null =
-    "date" in old ? old.date : START_TYPES.has(type) ? task.start : task.finish;
-  const date = withDate(reference, draft.constraintDate);
-  return date === null ? null : { type, date };
+  // Set by a typed start: keeps the start's time of day, as in the grid.
+  if (type === "startNoEarlierThan" && draft.start !== dayOf(task.start)) {
+    const date = withDate(task.start, draft.constraintDate);
+    return date === null ? null : { type, date };
+  }
+  return constraintFor(task, type, draft.constraintDate);
 }
 
 /**
@@ -261,6 +333,26 @@ export function commandsFromDraft(
     commands.push({ type: "setTaskMilestone", id, milestone: draft.milestone });
   }
 
+  if (draft.start !== dayOf(task.start) && isEditable("start", task)) {
+    const start = withDate(task.start, draft.start);
+    if (start === null) return { ok: false, field: "start", key: "grid.invalid.date" };
+    // An automatic task gets the constraint below instead (see withStart).
+    if (draft.mode === "manual") commands.push({ type: "setTaskManualStart", id, start });
+  }
+
+  // Groups and projects show their plan; only "Set plan" changes it.
+  if (isEditable("plannedFinish", task)) {
+    const planned = plannedFinishCommands(task, draft.plannedFinish);
+    if (planned === null) return { ok: false, field: "plannedFinish", key: "grid.invalid.date" };
+    commands.push(...planned);
+  }
+
+  if (isEditable("actualFinish", task)) {
+    const actual = actualFinishCommands(task, draft.actualFinish);
+    if (actual === null) return { ok: false, field: "actualFinish", key: "grid.invalid.date" };
+    commands.push(...actual);
+  }
+
   const constraint = draftConstraint(task, draft);
   if (constraint === null) {
     return { ok: false, field: "constraintDate", key: "taskInfo.invalid.constraintDate" };
@@ -269,15 +361,9 @@ export function commandsFromDraft(
     commands.push({ type: "setTaskConstraint", id, constraint });
   }
 
-  if (draft.deadline !== dayOf(task.deadline)) {
-    if (draft.deadline === "") {
-      commands.push({ type: "setTaskDeadline", id, deadline: null });
-    } else {
-      const deadline = withDate(task.deadline ?? task.finish, draft.deadline);
-      if (deadline === null) return { ok: false, field: "deadline", key: "grid.invalid.date" };
-      commands.push({ type: "setTaskDeadline", id, deadline });
-    }
-  }
+  const deadline = deadlineCommands(task, draft.deadline);
+  if (deadline === null) return { ok: false, field: "deadline", key: "grid.invalid.date" };
+  commands.push(...deadline);
 
   const calendarId = draft.calendarId === "" ? null : draft.calendarId;
   if (calendarId !== task.calendarId) commands.push({ type: "setTaskCalendar", id, calendarId });

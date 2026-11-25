@@ -28,6 +28,8 @@ import {
   commandsFromDraft,
   draftFromTask,
   needsDate,
+  withMode,
+  withStart,
   type TaskInfoDraft,
 } from "@frontend/features/task-info/taskInfoCommands";
 import { draftBlockersFromTask, newDraftBlocker } from "@frontend/features/task-info/blockers";
@@ -79,6 +81,9 @@ describe("draftFromTask", () => {
       milestone: false,
       hyperlink: "",
       notes: "",
+      start: "2027-03-01",
+      plannedFinish: "",
+      actualFinish: "",
       constraintType: "asSoonAsPossible",
       constraintDate: "",
       deadline: "",
@@ -412,5 +417,113 @@ describe("commandsFromDraft: blockers (D23)", () => {
       values: { number: 2 },
     });
     expect(en.taskInfo.invalid.blocker[field]).toContain("{number}");
+  });
+});
+
+describe("dates", () => {
+  const edited = (t: TaskRow, changes: Partial<TaskInfoDraft>) =>
+    commands(t, { ...draft(t), ...changes });
+  const started = (t: TaskRow, day: string) => edited(t, withStart(t, draft(t), day));
+
+  it("turns a typed start into the constraint, keeping the start's time", () => {
+    const t = task({ constraint: { type: "finishNoLaterThan", date: "2027-03-20T17:00:00" } });
+    expect(withStart(t, draft(t), "2027-03-08")).toEqual({
+      start: "2027-03-08",
+      constraintType: "startNoEarlierThan",
+      constraintDate: "2027-03-08",
+    });
+    expect(started(t, "2027-03-08")).toEqual({
+      ok: true,
+      commands: [
+        {
+          type: "setTaskConstraint",
+          id: "task-3",
+          constraint: { type: "startNoEarlierThan", date: "2027-03-08T08:00:00" },
+        },
+      ],
+    });
+  });
+
+  it("stores a manual task's start", () => {
+    expect(started(task({ mode: "manual" }), "2027-03-08")).toEqual({
+      ok: true,
+      commands: [{ type: "setTaskManualStart", id: "task-3", start: "2027-03-08T08:00:00" }],
+    });
+  });
+
+  it("restores the old constraint when the start is typed back", () => {
+    const t = task();
+    const typed = { ...draft(t), ...withStart(t, draft(t), "2027-03-08") };
+    expect({ ...typed, ...withStart(t, typed, "2027-03-01") }).toEqual(draft(t));
+  });
+
+  it("applies a typed start again in the new mode", () => {
+    const t = task();
+    const typed = { ...draft(t), ...withStart(t, draft(t), "2027-03-08") };
+    expect(commands(t, { ...typed, ...withMode(t, typed, "manual") })).toEqual({
+      ok: true,
+      commands: [
+        { type: "setTaskMode", id: "task-3", mode: "manual", manualStart: null },
+        { type: "setTaskManualStart", id: "task-3", start: "2027-03-08T08:00:00" },
+      ],
+    });
+  });
+
+  it("keeps a chosen constraint while a manual start is typed twice", () => {
+    const t = task({ mode: "manual" });
+    let d: TaskInfoDraft = {
+      ...draft(t),
+      constraintType: "mustFinishOn",
+      constraintDate: "2027-03-20",
+    };
+    for (const day of ["2027-03-08", "2027-03-09"]) d = { ...d, ...withStart(t, d, day) };
+    expect(d.constraintType).toBe("mustFinishOn");
+  });
+
+  it.each(["", "invalid"])("refuses the start %j", (day) => {
+    expect(started(task(), day)).toMatchObject({ ok: false, field: "start" });
+  });
+
+  it("sets, clears and refuses the planned finish", () => {
+    expect(edited(task(), { plannedFinish: "2027-03-05" })).toEqual({
+      ok: true,
+      commands: [
+        { type: "setTaskPlannedFinish", id: "task-3", plannedFinish: "2027-03-05T17:00:00" },
+      ],
+    });
+    const planned = task({ plannedFinish: "2027-03-05T17:00:00" });
+    expect(edited(planned, { plannedFinish: "" })).toEqual({
+      ok: true,
+      commands: [{ type: "setTaskPlannedFinish", id: "task-3", plannedFinish: null }],
+    });
+    expect(edited(planned, { plannedFinish: "x" })).toMatchObject({ field: "plannedFinish" });
+  });
+
+  it("completes a task that gets an actual finish", () => {
+    expect(edited(task(), { actualFinish: "2027-03-04" })).toEqual({
+      ok: true,
+      commands: [
+        { type: "setTaskPercentComplete", id: "task-3", percent: 100 },
+        { type: "setTaskActualFinish", id: "task-3", actualFinish: "2027-03-04T17:00:00" },
+      ],
+    });
+  });
+
+  it("never changes the dates of a group", () => {
+    const group = task({ isSummary: true });
+    const changes = {
+      start: "2027-03-08",
+      plannedFinish: "2027-03-08",
+      actualFinish: "2027-03-08",
+    };
+    expect(edited(group, changes)).toEqual({ ok: true, commands: [] });
+  });
+
+  it("sets a project's own start, but not its plan", () => {
+    const project = task({ isSummary: true, isProject: true });
+    const d = { ...draft(project), ...withStart(project, draft(project), "2027-03-08") };
+    const result = commands(project, { ...d, plannedFinish: "2027-03-09" });
+    expect(result).toMatchObject({ ok: true, commands: [{ type: "setTaskConstraint" }] });
+    expect(result.ok && result.commands).toHaveLength(1);
   });
 });

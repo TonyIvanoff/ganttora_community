@@ -438,6 +438,9 @@ impl GtraFile {
     ///
     /// let saved = gtra::open_db(dir.join("shed.gtra")).unwrap();
     /// assert_eq!(saved.meta("project_id").unwrap(), working.meta("project_id").unwrap());
+    /// // Close before deleting: Windows refuses to delete an open file.
+    /// saved.close().unwrap();
+    /// working.close().unwrap();
     /// # std::fs::remove_dir_all(&dir).unwrap();
     /// ```
     pub fn save_to(&self, storage: &dyn Storage) -> Result<(), GtraError> {
@@ -767,6 +770,8 @@ fn check_replaceable(path: &Path) -> Result<(), GtraError> {
 /// assert_eq!(name, "Garden shed");
 /// // A second create at the same path is refused.
 /// assert!(gtra::create_empty(dir.join("Garden shed.gtra")).is_err());
+/// // Close before deleting: Windows refuses to delete an open file.
+/// file.close().unwrap();
 /// # std::fs::remove_dir_all(&dir).unwrap();
 /// ```
 pub fn create_empty(path: impl AsRef<Path>) -> Result<GtraFile, GtraError> {
@@ -833,6 +838,8 @@ pub fn create_empty(path: impl AsRef<Path>) -> Result<GtraFile, GtraError> {
 /// // A text file renamed to .gtra is refused with a clear error.
 /// std::fs::write(dir.join("fake.gtra"), "hello").unwrap();
 /// assert!(matches!(gtra::open_db(dir.join("fake.gtra")), Err(gtra::GtraError::NotAGtraFile(_))));
+/// // Close before deleting: Windows refuses to delete an open file.
+/// file.close().unwrap();
 /// # std::fs::remove_dir_all(&dir).unwrap();
 /// ```
 pub fn open_db(path: impl AsRef<Path>) -> Result<GtraFile, GtraError> {

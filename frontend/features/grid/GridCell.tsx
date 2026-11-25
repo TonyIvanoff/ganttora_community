@@ -38,10 +38,10 @@ import { DateField } from "@frontend/components/ui/DateField";
 import { formatNumber, formatScheduleDate } from "@frontend/i18n/format";
 import {
   CONSTRAINT_KEYS,
-  MODE_KEYS,
   percentChoices,
   type EditMove,
   type EditorKind,
+  type EditorOption,
 } from "./gridFormat";
 import { localToday } from "@frontend/features/gantt/renderer/dates";
 import { projectBlockers } from "@frontend/features/task-info/blockers";
@@ -63,6 +63,8 @@ const INDENT_PX = 16;
 export interface CellEditorProps {
   /** Which editor to show. */
   kind: EditorKind;
+  /** The choices of a "list" editor. */
+  options?: readonly EditorOption[];
   /** The text to start with. */
   initialText: string;
   /** `true` to select all text at the start (Enter/F2); `false` to put the caret at the end (typing). */
@@ -91,8 +93,7 @@ export interface CellEditorProps {
  * `useState`.
  */
 export function CellEditor(props: CellEditorProps) {
-  const { t } = useTranslation();
-  const { kind, initialText, selectAll, label, error, onCommit, onCancel } = props;
+  const { kind, options = [], initialText, selectAll, label, error, onCommit, onCancel } = props;
   const [text, setText] = useState(initialText);
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   // Set when Enter/Tab/Escape already closed the editor, so the "blur"
@@ -167,7 +168,7 @@ export function CellEditor(props: CellEditorProps) {
 
   return (
     <div className="relative h-full w-full">
-      {kind === "mode" ? (
+      {kind === "list" ? (
         <select
           ref={(el) => {
             inputRef.current = el;
@@ -179,8 +180,11 @@ export function CellEditor(props: CellEditorProps) {
           onKeyDown={onKeyDown}
           onBlur={onBlur}
         >
-          <option value="auto">{t(MODE_KEYS.auto)}</option>
-          <option value="manual">{t(MODE_KEYS.manual)}</option>
+          {options.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
       ) : kind === "percent" ? (
         <>

@@ -22,7 +22,7 @@ import { projectBlockers } from "./blockers";
 import { missedStartPriority, missedStarts, taskRisks } from "./risks";
 
 /** The six tabs, in order. */
-export const TABS = ["general", "predecessors", "advanced", "notes", "blockers", "risks"] as const;
+export const TABS = ["general", "predecessors", "dates", "notes", "blockers", "risks"] as const;
 /** One tab's ID. */
 export type TabId = (typeof TABS)[number];
 
@@ -37,7 +37,7 @@ export interface TaskInfoState {
    *
    * @param id - The task's ID.
    * @param tab - The tab to show first (default: General). A project has no
-   *   Predecessors and Advanced tabs; it shows General instead.
+   *   Predecessors tab; it shows General instead.
    */
   open: (id: string, tab?: TabId) => void;
   /** Closes the dialog. */
@@ -58,6 +58,18 @@ export const useTaskInfoStore = create<TaskInfoState>()((set) => ({
   close: () => set({ taskId: null }),
 }));
 
+/** The columns whose field is on the Dates tab. */
+const DATE_COLUMNS: ReadonlySet<GridColumnId | undefined> = new Set([
+  "start",
+  "finish",
+  "plannedFinish",
+  "actualFinish",
+  "constraintType",
+  "constraintDate",
+  "deadline",
+  "calendar",
+] as const);
+
 /**
  * The tab to open for a double-clicked cell.
  *
@@ -66,11 +78,11 @@ export const useTaskInfoStore = create<TaskInfoState>()((set) => ({
  *   first that applies wins: blocker, risk, missed deadline or constraint, note.
  * @param rows - All rows, to look into a project.
  * @param todayMs - Today at 00:00, for missed starts.
- * @returns The tab. A project has no Advanced and Predecessors tabs; the
- *   dialog then shows General.
+ * @returns The tab. A project has no Predecessors tab; the dialog then
+ *   shows General.
  *
  * @example
- * infoTabOf("finish", task); // "advanced"
+ * infoTabOf("finish", task); // "dates"
  */
 export function infoTabOf(
   column: GridColumnId | undefined,
@@ -78,7 +90,7 @@ export function infoTabOf(
   rows: readonly TaskRow[] = [],
   todayMs: number = localToday(),
 ): TabId {
-  if (column === "start" || column === "finish") return "advanced";
+  if (DATE_COLUMNS.has(column)) return "dates";
   if (column === "predecessors") return "predecessors";
   if (column !== "indicators") return "general";
   // A project also shows the blockers and risks of its tasks.
@@ -88,6 +100,6 @@ export function infoTabOf(
   if ((task.risks ?? []).length > 0 || missedStartPriority(task, todayMs) !== null) return "risks";
   if (isProject && taskRisks(rows, task.id).length > 0) return "risks";
   if (isProject && missedStarts(rows, task.id, todayMs).length > 0) return "risks";
-  if (task.missedDeadline || task.constraint.type !== "asSoonAsPossible") return "advanced";
+  if (task.missedDeadline || task.constraint.type !== "asSoonAsPossible") return "dates";
   return task.notes.trim() === "" ? "general" : "notes";
 }

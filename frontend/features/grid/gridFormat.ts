@@ -49,6 +49,8 @@ export interface CellFormat {
   dateLocale: string;
   /** Row number (1-based) of a task ID, for the Predecessors column. */
   rowNumberOf: (id: string) => number | undefined;
+  /** All calendars, for the Task calendar column. */
+  calendars: readonly Calendar[];
 }
 
 /**
@@ -90,6 +92,25 @@ export function cellText(
       return formatScheduleDate(task?.plannedFinish ?? null, format.dateLocale) ?? "";
     case "actualFinish":
       return formatScheduleDate(task?.actualFinish ?? null, format.dateLocale) ?? "";
+    // A project has no constraint, deadline or task calendar of its own (its
+    // start date is stored as a constraint, but shown as its start).
+    case "constraintType":
+      return task === null || task.isProject === true
+        ? ""
+        : t(CONSTRAINT_KEYS[task.constraint.type]);
+    case "constraintDate":
+      return task === null || task.isProject === true || !("date" in task.constraint)
+        ? ""
+        : (formatScheduleDate(task.constraint.date, format.dateLocale) ?? "");
+    case "deadline":
+      return task === null || task.isProject === true
+        ? ""
+        : (formatScheduleDate(task.deadline, format.dateLocale) ?? "");
+    case "calendar":
+      // Empty: the project calendar.
+      return task === null || task.isProject === true
+        ? ""
+        : (format.calendars.find((c) => c.id === task.calendarId)?.name ?? "");
     case "complete":
       return task === null || (task.isProject === true && !task.isSummary)
         ? ""
@@ -104,17 +125,67 @@ export function cellText(
 }
 
 /** The kinds of cell editors. */
-export type EditorKind = "text" | "date" | "mode" | "percent";
+export type EditorKind = "text" | "date" | "list" | "percent";
+
+/** One choice of a list editor. */
+export interface EditorOption {
+  /** What is saved. */
+  value: string;
+  /** What the user sees. */
+  label: string;
+}
+
+/**
+ * The choices of a list editor.
+ *
+ * @param column - The column.
+ * @param calendars - All calendars.
+ * @param t - The translate function.
+ * @returns The choices; none for columns without a list.
+ *
+ * @example
+ * editorOptions("mode", [], t)[0].value; // "auto"
+ */
+export function editorOptions(
+  column: GridColumnId,
+  calendars: readonly Calendar[],
+  t: TFunction,
+): EditorOption[] {
+  if (column === "mode") {
+    return (["auto", "manual"] as const).map((m) => ({ value: m, label: t(MODE_KEYS[m]) }));
+  }
+  if (column === "constraintType") {
+    return Object.entries(CONSTRAINT_KEYS).map(([value, key]) => ({ value, label: t(key) }));
+  }
+  if (column === "calendar") {
+    return [
+      { value: "", label: t("taskInfo.projectCalendar") },
+      ...calendars.map((c) => ({ value: c.id, label: c.name })),
+    ];
+  }
+  return [];
+}
 
 /**
  * Which editor a column uses.
  *
  * @param column - The column.
- * @returns "date" for start, finish and actual finish, "mode" for the mode, "percent" for % complete, else "text".
+ * @returns "date" for the dates, "list" for the mode, constraint and task calendar, "percent" for % complete, else "text".
  */
 export function editorKind(column: GridColumnId): EditorKind {
-  if (column === "start" || column === "finish" || column === "actualFinish") return "date";
-  if (column === "mode") return "mode";
+  switch (column) {
+    case "start":
+    case "finish":
+    case "plannedFinish":
+    case "actualFinish":
+    case "constraintDate":
+    case "deadline":
+      return "date";
+    case "mode":
+    case "constraintType":
+    case "calendar":
+      return "list";
+  }
   if (column === "complete") return "percent";
   return "text";
 }
@@ -126,7 +197,7 @@ export function editorKind(column: GridColumnId): EditorKind {
  * @param row - The row (must be a real task).
  * @param format - See {@link CellFormat}.
  * @param t - The translate function.
- * @returns For dates "YYYY-MM-DD", for the mode "auto" / "manual", else the
+ * @returns For dates "YYYY-MM-DD", for lists the saved value, else the
  *   cell's text.
  */
 export function editorStartText(
@@ -138,6 +209,14 @@ export function editorStartText(
   if (column === "start") return dayOf(row.start);
   if (column === "finish") return dayOf(row.finish);
   if (column === "actualFinish") return dayOf(row.task?.actualFinish ?? null);
+  if (column === "plannedFinish") return dayOf(row.task?.plannedFinish ?? null);
+  if (column === "deadline") return dayOf(row.task?.deadline ?? null);
+  if (column === "constraintType") return row.task?.constraint.type ?? "asSoonAsPossible";
+  if (column === "constraintDate") {
+    const constraint = row.task?.constraint;
+    return constraint !== undefined && "date" in constraint ? dayOf(constraint.date) : "";
+  }
+  if (column === "calendar") return row.task?.calendarId ?? "";
   if (column === "mode") return row.task?.mode ?? "auto";
   if (column === "complete") return String(row.task?.percentComplete ?? 0);
   return cellText(column, row, format, t);

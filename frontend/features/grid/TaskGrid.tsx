@@ -92,6 +92,7 @@ import { CellEditor, IndicatorsCell, NameCell } from "./GridCell";
 import {
   cellText,
   editorKind,
+  editorOptions,
   editorStartText,
   type CellFormat,
   type EditMove,
@@ -139,6 +140,10 @@ const COLUMN_TITLE_KEYS = {
   finish: "grid.column.finish",
   plannedFinish: "grid.column.plannedFinish",
   actualFinish: "grid.column.actualFinish",
+  constraintType: "grid.column.constraintType",
+  constraintDate: "grid.column.constraintDate",
+  deadline: "grid.column.deadline",
+  calendar: "grid.column.calendar",
   complete: "grid.column.complete",
   predecessors: "grid.column.predecessors",
   mode: "grid.column.mode",
@@ -288,8 +293,8 @@ export function TaskGrid({ ganttContainerRef }: TaskGridProps) {
     [allTasks],
   );
   const format: CellFormat = useMemo(
-    () => ({ units, dateLocale, rowNumberOf: (id) => rowNumberById.get(id) }),
-    [units, dateLocale, rowNumberById],
+    () => ({ units, dateLocale, rowNumberOf: (id) => rowNumberById.get(id), calendars }),
+    [units, dateLocale, rowNumberById, calendars],
   );
 
   // The selection is shared with the Gantt chart (store), so a click on a
@@ -975,6 +980,7 @@ export function TaskGrid({ ganttContainerRef }: TaskGridProps) {
                         <CellEditor
                           key={`${row.id}:${column}`}
                           kind={editorKind(column)}
+                          options={editorOptions(column, calendars, t)}
                           initialText={editing.initialText}
                           selectAll={editing.selectAll}
                           label={t(COLUMN_TITLE_KEYS[column])}

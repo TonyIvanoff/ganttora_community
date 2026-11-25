@@ -3,16 +3,18 @@
  * (double-click a task row, Shift+F2, or the toolbar button).
  *
  * What it is for:
- *   Shows every field of one task on five tabs, like MS Project's dialog:
+ *   Shows every field of one task on six tabs, like MS Project's dialog:
  *   - **General:** name, duration, scheduling mode, milestone mark, hyperlink;
  *   - **Predecessors:** a table of incoming links (task, type, lag);
- *   - **Advanced:** constraint type and date, deadline, task calendar;
+ *   - **Dates:** start, calculated, planned and actual finish, constraint type
+ *     and date, deadline, task calendar;
  *   - **Notes:** free text;
  *   - **Blockers:** unplanned delays on the task (not in MS
  *     Project): each with its dates, length, reason and reported day, to
  *     edit or remove, plus "Add blocker";
  *   - **Risks:** what could go wrong (risks.ts), also for groups and projects.
- *   For a project it is the Project Information dialog: General, Notes,
+ *   For a project it is the Project Information dialog: General, Dates
+ *   (start, calculated and planned finish), Notes,
  *   Blockers (a list of its tasks' blockers) and Risks (its own, and a list
  *   of its tasks' risks).
  *   OK sends the changes; Cancel (or Escape) throws them away.
@@ -38,6 +40,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@frontend/components/ui/DateField";
+import { dayOf, isEditable } from "@frontend/features/grid/cellEdit";
 import { CONSTRAINT_KEYS, MODE_KEYS } from "@frontend/features/grid/gridFormat";
 import { useFormatLocale } from "@frontend/features/settings/useFormatLocale";
 import { formatNumber, formatScheduleDate } from "@frontend/i18n/format";
@@ -71,19 +74,21 @@ import {
   commandsFromDraft,
   draftFromTask,
   needsDate,
+  withMode,
+  withStart,
   type DraftField,
   type TaskInfoDraft,
 } from "./taskInfoCommands";
 import { TABS, useTaskInfoStore, type TabId } from "./taskInfoStore";
 
-/** The tabs of a project: it has no predecessors and no constraints. */
-const PROJECT_TABS: readonly TabId[] = ["general", "notes", "blockers", "risks"];
+/** The tabs of a project: it has no predecessors. */
+const PROJECT_TABS: readonly TabId[] = ["general", "dates", "notes", "blockers", "risks"];
 
 /** Translation keys of the tab titles. */
 const TAB_KEYS = {
   general: "taskInfo.tabs.general",
   predecessors: "taskInfo.tabs.predecessors",
-  advanced: "taskInfo.tabs.advanced",
+  dates: "taskInfo.tabs.dates",
   notes: "taskInfo.tabs.notes",
   blockers: "taskInfo.tabs.blockers",
   risks: "taskInfo.tabs.risks",
@@ -103,8 +108,11 @@ const CONSTRAINT_TYPES = Object.keys(CONSTRAINT_KEYS) as Constraint["type"][];
 /** The tab that holds each field (to jump to it when it has an error). */
 const FIELD_TAB: Record<DraftField, TabId> = {
   duration: "general",
-  constraintDate: "advanced",
-  deadline: "advanced",
+  start: "dates",
+  plannedFinish: "dates",
+  actualFinish: "dates",
+  constraintDate: "dates",
+  deadline: "dates",
   links: "predecessors",
   blockers: "blockers",
   risks: "risks",
@@ -391,7 +399,7 @@ function TaskInfoForm({ task, titleId }: TaskInfoFormProps) {
                   id={`${baseId}-mode`}
                   className={`${FIELD_CLASS} w-40`}
                   value={draft.mode}
-                  onChange={(e) => update({ mode: e.target.value as TaskMode })}
+                  onChange={(e) => update(withMode(task, draft, e.target.value as TaskMode))}
                 >
                   <option value="auto">{t(MODE_KEYS.auto)}</option>
                   <option value="manual">{t(MODE_KEYS.manual)}</option>
@@ -530,70 +538,146 @@ function TaskInfoForm({ task, titleId }: TaskInfoFormProps) {
           </div>
         )}
 
-        {tab === "advanced" && (
+        {tab === "dates" && (
           <div className="grid grid-cols-[max-content_1fr] items-center gap-x-3 gap-y-2">
-            <label htmlFor={`${baseId}-ctype`}>{t("taskInfo.constraintType")}</label>
-            <select
-              id={`${baseId}-ctype`}
-              aria-describedby={`${baseId}-chint`}
-              className={`${FIELD_CLASS} w-60`}
-              value={draft.constraintType}
-              onChange={(e) => update({ constraintType: e.target.value as Constraint["type"] })}
-            >
-              {CONSTRAINT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(CONSTRAINT_KEYS[type])}
-                </option>
-              ))}
-            </select>
-            <p id={`${baseId}-chint`} className="col-start-2 text-xs text-fg-muted">
-              {t("taskInfo.constraintHint")}
-            </p>
-            <label htmlFor={`${baseId}-cdate`}>{t("taskInfo.constraintDate")}</label>
+            <label htmlFor={`${baseId}-start`}>{t("taskInfo.start")}</label>
             <DateField
-              id={`${baseId}-cdate`}
+              id={`${baseId}-start`}
+              describedBy={`${baseId}-start-hint`}
               className={FIELD_CLASS}
               boxClassName="w-44"
-              value={draft.constraintDate}
-              disabled={!needsDate(draft.constraintType)}
-              invalid={fieldError("constraintDate") !== null}
-              onChange={(day) => update({ constraintDate: day })}
+              value={draft.start}
+              disabled={!isEditable("start", task)}
+              invalid={fieldError("start") !== null}
+              onChange={(day) => update(withStart(task, draft, day))}
             />
-            <label htmlFor={`${baseId}-deadline`}>{t("taskInfo.deadline")}</label>
-            <div className="flex flex-wrap items-center gap-2">
-              <DateField
-                id={`${baseId}-deadline`}
-                className={FIELD_CLASS}
-                boxClassName="w-44"
-                value={draft.deadline}
-                invalid={fieldError("deadline") !== null}
-                onChange={(day) => update({ deadline: day })}
-              />
-              {draft.deadline !== "" && (
-                <button
-                  type="button"
-                  className="rounded border border-line px-2 py-0.5 whitespace-nowrap hover:bg-app"
-                  onClick={() => update({ deadline: "" })}
-                >
-                  {t("taskInfo.clearDeadline")}
-                </button>
+            <p id={`${baseId}-start-hint`} className="col-start-2 text-xs text-fg-muted">
+              {t(
+                isProject
+                  ? "taskInfo.startHintProject"
+                  : task.isSummary
+                    ? "taskInfo.startHintSummary"
+                    : draft.mode === "manual"
+                      ? "taskInfo.startHintManual"
+                      : "taskInfo.startHint",
               )}
-            </div>
-            <p className="col-start-2 text-xs text-fg-muted">{t("taskInfo.deadlineHint")}</p>
-            <label htmlFor={`${baseId}-calendar`}>{t("taskInfo.calendar")}</label>
-            <select
-              id={`${baseId}-calendar`}
-              className={`${FIELD_CLASS} w-60`}
-              value={draft.calendarId}
-              onChange={(e) => update({ calendarId: e.target.value })}
-            >
-              <option value="">{t("taskInfo.projectCalendar")}</option>
-              {calendars.map((calendar) => (
-                <option key={calendar.id} value={calendar.id}>
-                  {calendar.name}
-                </option>
-              ))}
-            </select>
+            </p>
+            <span>{t("taskInfo.finish")}</span>
+            <output aria-label={t("taskInfo.finish")}>
+              {formatScheduleDate(task.finish, dateLocale) ?? t("taskInfo.noDate")}
+            </output>
+            <label htmlFor={`${baseId}-planned`}>{t("taskInfo.plannedFinish")}</label>
+            <DateField
+              id={`${baseId}-planned`}
+              describedBy={`${baseId}-planned-hint`}
+              className={FIELD_CLASS}
+              boxClassName="w-44"
+              value={draft.plannedFinish}
+              disabled={task.isSummary || isProject}
+              invalid={fieldError("plannedFinish") !== null}
+              onChange={(day) => update({ plannedFinish: day })}
+            />
+            <p id={`${baseId}-planned-hint`} className="col-start-2 text-xs text-fg-muted">
+              {t(
+                task.isSummary || isProject
+                  ? "taskInfo.plannedFinishHintGroup"
+                  : "taskInfo.plannedFinishHint",
+              )}
+            </p>
+            {isEditable("actualFinish", task) && (
+              <>
+                <label htmlFor={`${baseId}-actual`}>{t("taskInfo.actualFinish")}</label>
+                <DateField
+                  id={`${baseId}-actual`}
+                  describedBy={`${baseId}-actual-hint`}
+                  className={FIELD_CLASS}
+                  boxClassName="w-44"
+                  value={draft.actualFinish}
+                  invalid={fieldError("actualFinish") !== null}
+                  onChange={(day) => update({ actualFinish: day })}
+                />
+                <p id={`${baseId}-actual-hint`} className="col-start-2 text-xs text-fg-muted">
+                  {t("taskInfo.actualFinishHint")}
+                </p>
+              </>
+            )}
+            {!isProject && (
+              <>
+                <label htmlFor={`${baseId}-ctype`}>{t("taskInfo.constraintType")}</label>
+                <select
+                  id={`${baseId}-ctype`}
+                  aria-describedby={`${baseId}-chint`}
+                  className={`${FIELD_CLASS} w-60`}
+                  value={draft.constraintType}
+                  // Choosing a constraint replaces a typed start on an automatic task.
+                  onChange={(e) =>
+                    update({
+                      constraintType: e.target.value as Constraint["type"],
+                      ...(draft.mode === "auto" ? { start: dayOf(task.start) } : {}),
+                    })
+                  }
+                >
+                  {CONSTRAINT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {t(CONSTRAINT_KEYS[type])}
+                    </option>
+                  ))}
+                </select>
+                <p id={`${baseId}-chint`} className="col-start-2 text-xs text-fg-muted">
+                  {t("taskInfo.constraintHint")}
+                </p>
+                <label htmlFor={`${baseId}-cdate`}>{t("taskInfo.constraintDate")}</label>
+                <DateField
+                  id={`${baseId}-cdate`}
+                  className={FIELD_CLASS}
+                  boxClassName="w-44"
+                  value={draft.constraintDate}
+                  disabled={!needsDate(draft.constraintType)}
+                  invalid={fieldError("constraintDate") !== null}
+                  onChange={(day) =>
+                    update({
+                      constraintDate: day,
+                      ...(draft.mode === "auto" ? { start: dayOf(task.start) } : {}),
+                    })
+                  }
+                />
+                <label htmlFor={`${baseId}-deadline`}>{t("taskInfo.deadline")}</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DateField
+                    id={`${baseId}-deadline`}
+                    className={FIELD_CLASS}
+                    boxClassName="w-44"
+                    value={draft.deadline}
+                    invalid={fieldError("deadline") !== null}
+                    onChange={(day) => update({ deadline: day })}
+                  />
+                  {draft.deadline !== "" && (
+                    <button
+                      type="button"
+                      className="rounded border border-line px-2 py-0.5 whitespace-nowrap hover:bg-app"
+                      onClick={() => update({ deadline: "" })}
+                    >
+                      {t("taskInfo.clearDeadline")}
+                    </button>
+                  )}
+                </div>
+                <p className="col-start-2 text-xs text-fg-muted">{t("taskInfo.deadlineHint")}</p>
+                <label htmlFor={`${baseId}-calendar`}>{t("taskInfo.calendar")}</label>
+                <select
+                  id={`${baseId}-calendar`}
+                  className={`${FIELD_CLASS} w-60`}
+                  value={draft.calendarId}
+                  onChange={(e) => update({ calendarId: e.target.value })}
+                >
+                  <option value="">{t("taskInfo.projectCalendar")}</option>
+                  {calendars.map((calendar) => (
+                    <option key={calendar.id} value={calendar.id}>
+                      {calendar.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         )}
 

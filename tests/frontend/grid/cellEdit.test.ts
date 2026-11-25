@@ -318,9 +318,89 @@ describe("actual finish", () => {
     expect(edit("", { finish })).toEqual({ ok: true, commands: [] });
   });
 
-  it("belongs to tasks only, and the planned finish is read-only", () => {
+  it("belongs to tasks only", () => {
     expect(isEditable("actualFinish", taskRow())).toBe(true);
     expect(isEditable("actualFinish", taskRow({ isSummary: true }))).toBe(false);
-    expect(isEditable("plannedFinish", taskRow())).toBe(false);
+  });
+});
+
+describe("the columns of the Dates tab", () => {
+  const edit = (
+    column: Parameters<typeof isEditable>[0],
+    text: string,
+    extra: Partial<TaskRow> = {},
+  ) => commandsForCellEdit(column, text, taskRow(extra), context());
+  const start = "2027-03-01T08:00:00";
+  const finish = "2027-03-02T17:00:00";
+
+  it("can be edited for tasks; a group has no plan to type, a project none of them", () => {
+    const group = taskRow({ isSummary: true });
+    const project = taskRow({ isSummary: true, isProject: true });
+    expect(isEditable("plannedFinish", taskRow())).toBe(true);
+    expect(isEditable("plannedFinish", group)).toBe(false);
+    expect(isEditable("plannedFinish", project)).toBe(false);
+    for (const column of ["constraintType", "constraintDate", "deadline", "calendar"] as const) {
+      expect(isEditable(column, taskRow()), column).toBe(true);
+      expect(isEditable(column, group), column).toBe(true);
+      expect(isEditable(column, project), column).toBe(false);
+    }
+  });
+
+  it("sets, clears and refuses the planned finish and the deadline", () => {
+    expect(edit("plannedFinish", "2027-03-05", { finish })).toMatchObject({
+      commands: [{ type: "setTaskPlannedFinish", plannedFinish: "2027-03-05T17:00:00" }],
+    });
+    expect(edit("deadline", "2027-03-05", { finish })).toMatchObject({
+      commands: [{ type: "setTaskDeadline", deadline: "2027-03-05T17:00:00" }],
+    });
+    expect(edit("plannedFinish", "", { plannedFinish: finish })).toMatchObject({
+      commands: [{ plannedFinish: null }],
+    });
+    expect(edit("deadline", "", { deadline: finish })).toMatchObject({
+      commands: [{ deadline: null }],
+    });
+    expect(edit("deadline", "")).toEqual({ ok: true, commands: [] });
+    expect(edit("plannedFinish", "x")).toEqual({ ok: false, key: "grid.invalid.date" });
+    expect(edit("deadline", "x")).toEqual({ ok: false, key: "grid.invalid.date" });
+  });
+
+  it("gives a chosen constraint the task's own date and keeps an existing day", () => {
+    expect(edit("constraintType", "mustFinishOn", { start, finish })).toMatchObject({
+      commands: [{ constraint: { type: "mustFinishOn", date: finish } }],
+    });
+    const constraint = { type: "mustFinishOn", date: "2027-03-20T17:00:00" } as const;
+    // The time of day follows the kind: a start is not at 17:00.
+    expect(edit("constraintType", "mustStartOn", { start, finish, constraint })).toMatchObject({
+      commands: [{ constraint: { type: "mustStartOn", date: "2027-03-20T08:00:00" } }],
+    });
+    expect(edit("constraintType", "asSoonAsPossible", { constraint })).toMatchObject({
+      commands: [{ constraint: { type: "asSoonAsPossible" } }],
+    });
+    expect(edit("constraintType", "mustFinishOn", { constraint })).toEqual({
+      ok: true,
+      commands: [],
+    });
+  });
+
+  it("changes a constraint's date; a date alone means start no earlier than", () => {
+    expect(edit("constraintDate", "2027-03-08", { start })).toMatchObject({
+      commands: [{ constraint: { type: "startNoEarlierThan", date: "2027-03-08T08:00:00" } }],
+    });
+    const constraint = { type: "mustFinishOn", date: finish } as const;
+    expect(edit("constraintDate", "2027-03-08", { constraint })).toMatchObject({
+      commands: [{ constraint: { type: "mustFinishOn", date: "2027-03-08T17:00:00" } }],
+    });
+    expect(edit("constraintDate", "", { constraint })).toMatchObject({ ok: false });
+    expect(edit("constraintDate", "")).toEqual({ ok: true, commands: [] });
+  });
+
+  it("sets and clears the task calendar", () => {
+    expect(edit("calendar", "cal-night")).toMatchObject({
+      commands: [{ type: "setTaskCalendar", calendarId: "cal-night" }],
+    });
+    expect(edit("calendar", "", { calendarId: "cal-night" })).toMatchObject({
+      commands: [{ calendarId: null }],
+    });
+    expect(edit("calendar", "", { calendarId: null })).toEqual({ ok: true, commands: [] });
   });
 });

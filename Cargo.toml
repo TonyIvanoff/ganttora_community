@@ -21,7 +21,7 @@ members = [
 # Settings shared by every member crate. A member opts in with
 # `edition.workspace = true` and so on.
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = false
 # Licence: not decided yet (open question for the project owner).

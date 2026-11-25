@@ -43,7 +43,7 @@ plugins {
 
 // Our "group" (like a package name for the build) and version.
 group = 'com.ganttora'
-version = '0.1.0'
+version = '0.2.0'
 
 // Where to download libraries from: Maven Central, the main public library
 // store for Java.

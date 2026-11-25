@@ -152,8 +152,14 @@ it.each(["rowNumber", "name", "start"])("opens Task Information from the %s cell
 
 it.each([
   ["name", "general"],
-  ["start", "advanced"],
-  ["finish", "advanced"],
+  ["start", "dates"],
+  ["finish", "dates"],
+  ["plannedFinish", "dates"],
+  ["actualFinish", "dates"],
+  ["constraintType", "dates"],
+  ["constraintDate", "dates"],
+  ["deadline", "dates"],
+  ["calendar", "dates"],
   ["predecessors", "predecessors"],
   ["duration", "general"],
 ])("opens the tab of the %s column: %s", (column, tab) => {
@@ -169,7 +175,7 @@ it("opens the tab of what the indicators show", () => {
   const plain = { blockers: [], risks: [], notes: "", missedDeadline: false };
   expect(tab({ ...plain, constraint: { type: "asSoonAsPossible" } })).toBe("general");
   expect(tab({ ...plain, constraint: { type: "asSoonAsPossible" }, notes: "x" })).toBe("notes");
-  expect(tab({ ...plain, missedDeadline: true })).toBe("advanced");
+  expect(tab({ ...plain, missedDeadline: true })).toBe("dates");
   expect(tab({ ...plain, risks: [{}] })).toBe("risks");
   expect(tab({ ...plain, risks: [{}], blockers: [{}] })).toBe("blockers");
 });

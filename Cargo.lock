@@ -995,7 +995,7 @@ dependencies = [
 
 [[package]]
 name = "document"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "engine",
@@ -1112,7 +1112,7 @@ checksum = "66b7e2430c6dff6a955451e2cfc438f09cea1965a9d6f87f7e3b90decc014099"
 
 [[package]]
 name = "engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "model",
@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "ganttora"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "document",
@@ -1420,7 +1420,7 @@ dependencies = [
 
 [[package]]
 name = "ganttora-tests"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "criterion",
@@ -1728,7 +1728,7 @@ dependencies = [
 
 [[package]]
 name = "gtra"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "engine",
@@ -2413,7 +2413,7 @@ dependencies = [
 
 [[package]]
 name = "model"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",

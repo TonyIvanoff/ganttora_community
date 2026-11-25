@@ -53,6 +53,10 @@ export const DEFAULT_COLUMN_WIDTHS: Readonly<Record<GridColumnId, number>> = {
   finish: 136,
   plannedFinish: 136,
   actualFinish: 136,
+  constraintType: 176,
+  constraintDate: 136,
+  deadline: 136,
+  calendar: 136,
   predecessors: 120,
   mode: 84,
 };

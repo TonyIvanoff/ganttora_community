@@ -135,7 +135,7 @@ pub const MAX_TOOLBAR_POSITION: f64 = 10_000.0;
 /// The column names are the grid's column IDs (`GridColumnId` in
 /// `frontend/features/grid/cellEdit.ts`). Must match
 /// `DEFAULT_COLUMN_WIDTHS` in `frontend/features/grid/columnWidths.ts`.
-pub const DEFAULT_COLUMN_WIDTHS: [(&str, u32); 12] = [
+pub const DEFAULT_COLUMN_WIDTHS: [(&str, u32); 16] = [
     ("rowNumber", 44),
     ("indicators", 164),
     ("outline", 56),
@@ -146,6 +146,10 @@ pub const DEFAULT_COLUMN_WIDTHS: [(&str, u32); 12] = [
     ("finish", 136),
     ("plannedFinish", 136),
     ("actualFinish", 136),
+    ("constraintType", 176),
+    ("constraintDate", 136),
+    ("deadline", 136),
+    ("calendar", 136),
     ("predecessors", 120),
     ("mode", 84),
 ];
@@ -172,6 +176,8 @@ pub const DEFAULT_COLUMN_WIDTHS: [(&str, u32); 12] = [
 ///   "updates": { "autoUpdate": true, "crashReports": false },
 ///   "grid": { "columnWidths": { "rowNumber": 44, "indicators": 164, "outline": 56,
 ///             "name": 240, "duration": 84, "start": 136, "finish": 136,
+///             "plannedFinish": 136, "actualFinish": 136, "constraintType": 176,
+///             "constraintDate": 136, "deadline": 136, "calendar": 136,
 ///             "complete": 80, "predecessors": 120, "mode": 84 } },
 ///   "toolbars": { "layout": [] },
 ///   "view": { "timescale": "days", "zoomPercent": 100 }

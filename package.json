@@ -2,7 +2,7 @@
   "name": "ganttora",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ganttora: a free desktop project planner (React UI + Tauri/Rust core).",
   "type": "module",
   "packageManager": "pnpm@11.4.0",
